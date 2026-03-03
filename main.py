@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import time
+from datetime import date, datetime
 from pathlib import Path
 
 import pyautogui
@@ -48,7 +49,52 @@ def _paste_text(text: str) -> None:
     pyperclip.copy(text)
     pyautogui.hotkey("ctrl", "v")
 
+
+def _is_invalid_today() -> bool:
+    """Retorna True se a data de hoje estiver na lista de datas inválidas em data_invalidas.txt."""
+    today = date.today()
+    cfg_path = Path(__file__).resolve().parent / "data_invalidas.txt"
+    if not cfg_path.exists():
+        return False
+
+    try:
+        raw_text = cfg_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    for raw_line in raw_text.splitlines():
+        # permite comentários com # e descrições após a data
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+
+        # pega só o primeiro "token" da linha (antes de espaços ou "-")
+        token = line.split()[0]
+        token = token.split("-", 1)[0].strip()
+        if not token:
+            continue
+
+        for fmt in ("%d/%m/%Y", "%d/%m"):
+            try:
+                parsed = datetime.strptime(token, fmt).date()
+                # se veio sem ano, trata como recorrente
+                if fmt == "%d/%m":
+                    if parsed.day == today.day and parsed.month == today.month:
+                        return True
+                else:
+                    if parsed == today:
+                        return True
+                break
+            except ValueError:
+                continue
+
+    return False
+
 def login():
+    if _is_invalid_today():
+        print("A data de hoje está na lista de datas inválidas (data_invalidas.txt). Automatização não será executada.")
+        return
+
     print("Iniciando o programa...")
     load_dotenv(override=True)  # override=True: .env sobrescreve USERNAME do Windows
 

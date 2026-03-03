@@ -1,0 +1,30 @@
+# Lista de datas em que o script NÃO deve executar.
+# Formatos aceitos: DD/MM ou DD/MM/AAAA (um por linha).
+# Comentários após "#" são ignorados.
+
+# -----------------------------
+# FERIADOS NACIONAIS (RECORRENTES)
+# -----------------------------
+01/01 - Confraternização Universal (feriado nacional)
+21/04 - Tiradentes (feriado nacional)
+01/05 - Dia do Trabalhador (feriado nacional)
+07/09 - Independência do Brasil (feriado nacional)
+12/10 - Nossa Senhora Aparecida (feriado nacional)
+02/11 - Finados (feriado nacional)
+15/11 - Proclamação da República (feriado nacional)
+20/11 - Dia Nacional de Zumbi e da Consciência Negra (feriado nacional)
+25/12 - Natal (feriado nacional)
+
+# ----------------------------------------
+# FERIADOS ESTADUAIS DO RIO DE JANEIRO (RECORRENTES)
+# ----------------------------------------
+23/04 - Dia de São Jorge (feriado estadual RJ)
+
+# ----------------------------------------
+# FERIADOS MÓVEIS EM 2026 (NACIONAL / RJ)
+# Para outros anos, basta acrescentar novas linhas.
+# ----------------------------------------
+17/02/2026 - Carnaval (feriado estadual RJ)
+03/04/2026 - Sexta-feira Santa / Paixão de Cristo (feriado nacional)
+04/06/2026 - Corpus Christi (feriado estadual RJ)
+

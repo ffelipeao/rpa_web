@@ -7,6 +7,7 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 - **Objetivo**: abrir o site alvo, fazer login (usuário e senha) e executar sequências de cliques (ex.: botões pós-login).
 - **Automação**: baseada em coordenadas da tela (x, y) definidas no arquivo `.env`. Usuário e senha são **colados** (Ctrl+V) para suportar e-mail e caracteres especiais.
 - **Navegador**: Google Chrome em modo **anônimo** (`--incognito`).
+- **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
 
 ## Pré-requisitos
 
@@ -42,7 +43,23 @@ BUTTON2="(686, 428)"
 
 > **Importante**: o arquivo `.env` contém senha. Não envie esse arquivo para o Git / repositórios remotos.
 
-### 2. Descobrir as coordenadas dos elementos
+### 2. Datas em que o script não executa (`data_invalidas.txt`)
+
+O arquivo `data_invalidas.txt` na raiz do projeto define em quais datas a automação **não** deve rodar (ex.: feriados). O script verifica a data de hoje antes de iniciar; se estiver na lista, encerra sem abrir o navegador.
+
+- **Formato**: uma data por linha, em `DD/MM` (recorrente, todo ano) ou `DD/MM/AAAA` (data específica).
+- **Comentários**: linhas que começam com `#` ou texto após a data (ex.: `01/01 - Confraternização`) são ignorados.
+- O arquivo já vem preenchido com **feriados nacionais** e **feriados estaduais do Rio de Janeiro**. Feriados móveis (Carnaval, Sexta-feira Santa, Corpus Christi) estão com datas de 2026; para outros anos, basta acrescentar novas linhas.
+
+Exemplo de linhas válidas:
+
+```
+01/01 - Confraternização Universal
+23/04 - Dia de São Jorge (RJ)
+04/06/2026 - Corpus Christi
+```
+
+### 3. Descobrir as coordenadas dos elementos
 
 Use o script `auxiliar.py` para descobrir a posição do mouse na tela:
 
@@ -52,17 +69,18 @@ uv run auxiliar.py
 
 - Você terá **5 segundos** para posicionar o mouse sobre o campo/botão desejado.
 - Após isso, o script imprime algo como `Point(x=553, y=405)` no terminal.
-- Use esses valores no `.env` em `EMAIL_FIELD`, `PASSWORD_FIELD`, `LOGIN_BUTTON`, `BUTTON1`, `BUTTON2`, `FECHAR_WINDOW`, etc.
+- Use esses valores no `.env` em `EMAIL_FIELD`, `PASSWORD_FIELD`, `LOGIN_BUTTON`, `BUTTON1`, `BUTTON2`, etc.
 
 ## Como o script funciona
 
 O `main.py` executa, em sequência:
 
-1. Carrega o `.env` com `load_dotenv(override=True)` (no Windows, isso evita que `USERNAME` do sistema sobrescreva o do `.env`).
-2. Lê credenciais, `SITE` e coordenadas (formato `"(x, y)"` ou `"x=553, y=405"`).
-3. Abre o Chrome em modo anônimo na URL configurada e espera a página carregar (~5 s).
-4. Clica no campo de e-mail, **cola** o usuário (Ctrl+V). Clica no campo de senha, **cola** a senha. Clica no botão de login.
-5. Após o login: clica em `BUTTON1`, depois `BUTTON2`, depois em `FECHAR_WINDOW` (fechar janela).
+1. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
+2. Carrega o `.env` com `load_dotenv(override=True)` (no Windows, isso evita que `USERNAME` do sistema sobrescreva o do `.env`).
+3. Lê credenciais, `SITE` e coordenadas (formato `"(x, y)"` ou `"x=553, y=405"`).
+4. Abre o Chrome em modo anônimo na URL configurada e espera a página carregar (~5 s).
+5. Clica no campo de e-mail, **cola** o usuário (Ctrl+V). Clica no campo de senha, **cola** a senha. Clica no botão de login.
+6. Após o login: clica em `BUTTON1`, depois `BUTTON2`, depois em `FECHAR_WINDOW` (fechar janela).
 
 Usuário e senha são colados via clipboard (`pyperclip` + Ctrl+V) para funcionar com e-mail e caracteres especiais (`@`, `+`, `?`, etc.).
 
