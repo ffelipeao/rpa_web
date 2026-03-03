@@ -8,6 +8,8 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 - **Automação**: baseada em coordenadas da tela (x, y) definidas no arquivo `.env`. Usuário e senha são **colados** (Ctrl+V) para suportar e-mail e caracteres especiais.
 - **Navegador**: Google Chrome em modo **anônimo** (`--incognito`).
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
+- **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros.
+- **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão de ação 2), útil para validar o fluxo até o botão 1.
 
 ## Pré-requisitos
 
@@ -80,7 +82,7 @@ O `main.py` executa, em sequência:
 3. Lê credenciais, `SITE` e coordenadas (formato `"(x, y)"` ou `"x=553, y=405"`).
 4. Abre o Chrome em modo anônimo na URL configurada e espera a página carregar (~5 s).
 5. Clica no campo de e-mail, **cola** o usuário (Ctrl+V). Clica no campo de senha, **cola** a senha. Clica no botão de login.
-6. Após o login: clica em `BUTTON1`, depois `BUTTON2`, depois em `FECHAR_WINDOW` (fechar janela).
+6. Após o login: clica em `BUTTON1`, depois `BUTTON2`, depois fecha a janela (Alt+F4).
 
 Usuário e senha são colados via clipboard (`pyperclip` + Ctrl+V) para funcionar com e-mail e caracteres especiais (`@`, `+`, `?`, etc.).
 
@@ -90,10 +92,43 @@ Após clonar o repositório:
 
 ```bash
 uv sync          # instala as dependências (pyautogui, pyperclip, python-dotenv, etc.)
-uv run main.py   # executa a automação de login
+uv run main.py   # executa a automação completa (todos os passos)
+```
+
+**Modo teste** (não executa o Passo 9 — clique no botão de ação 2):
+
+```bash
+uv run main.py --test
+```
+
+Para ver a descrição do argumento:
+
+```bash
+uv run main.py --help
 ```
 
 Se estiver em PowerShell e o uv mostrar o aviso de hardlink, veja a seção de troubleshooting abaixo.
+
+## Modo de uso para teste
+
+Use o argumento `--test` quando quiser:
+
+- Validar o fluxo até o **Passo 8** (clique no botão 1) sem disparar a ação do **Passo 9** (botão 2).
+- Evitar efeitos reais da ação do botão 2 em ambiente de produção ou em testes rápidos.
+
+O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O restante da automação (login, botão 1, fechamento da janela) é executado normalmente.
+
+| Comando | Passo 9 (botão 2) |
+|--------|--------------------|
+| `uv run main.py` | Executado |
+| `uv run main.py --test` | Não executado |
+
+## Log de execuções
+
+- **Pasta**: `logs/` (criada automaticamente na raiz do projeto).
+- **Nome do arquivo**: `rpa_web_AAAAMMDD_HHMMSS.log` (data e hora do início da execução).
+- **Conteúdo**: cada ação da automação (abertura do Chrome, preenchimento de campos, cliques, etc.) e, em caso de erro, o stack trace completo.
+- **Agendador de Tarefas**: o script encerra com código `0` em sucesso e `1` em falha; o histórico detalhado fica nos arquivos de log.
 
 ## Comandos básicos do uv
 
