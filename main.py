@@ -68,18 +68,22 @@ def login():
     subprocess.Popen([chrome, "--incognito", url])
     time.sleep(5)  # esperar a janela anônima e a página carregar (aumente se a rede for lenta)
 
+    # Maximizar o navegador (atalho Windows: Win+Up) antes do primeiro clique
+    pyautogui.hotkey("win", "up")
+    time.sleep(2)  # aguardar a animação de maximizar
+
     print("Preenchendo o campo de e-mail...")
     pyautogui.click(EMAIL_FIELD)
-    time.sleep(0.4)  # dar foco ao campo antes de colar
+    time.sleep(3)  # dar foco ao campo antes de colar
     _paste_text(USERNAME)
 
     print("Preenchendo o campo de senha...")
     pyautogui.press("tab")
-    time.sleep(0.4) # Esperar para digitar a senha
+    time.sleep(2) # Esperar para digitar a senha
     _paste_text(PASSWORD)
 
     print("Clicando no botão de login...")
-    time.sleep(0.3)
+    time.sleep(1)
     pyautogui.press("enter")
     print("Login realizado com sucesso!")
 
@@ -92,7 +96,7 @@ def login():
     pyautogui.click(BUTTON2)
 
     print("Clicando no botão de fechar janela...")
-    time.sleep(0.5)
+    time.sleep(1)
     pyautogui.hotkey("alt", "f4")
     print("Janela fechada com sucesso!")
 
