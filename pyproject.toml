@@ -1,0 +1,11 @@
+[project]
+name = "rpa_web"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "pyautogui>=0.9.54",
+    "pyperclip>=1.8.2",
+]
