@@ -27,20 +27,17 @@ USERNAME=seu_usuario_ou_email
 PASSWORD=sua_senha
 SITE=https://seu-site-alvo.com/
 
-# Posições dos campos e botões (formato "(x, y)" ou "x=553, y=405")
+# Posições do campo inicial (formato "(x, y)" ou "x=553, y=405")
 EMAIL_FIELD="(553, 405)"
-PASSWORD_FIELD="(552, 450)"
-LOGIN_BUTTON="(660, 572)"
 
 # Botões após o login (ajuste conforme o fluxo do seu sistema)
 BUTTON1="(1170, 177)"
 BUTTON2="(686, 428)"
-FECHAR_WINDOW="(1343, 15)"
 ```
 
 - **`USERNAME` / `PASSWORD`**: credenciais de login (e-mail e senha com caracteres especiais são suportados via cola).
 - **`SITE`**: URL da página de login.
-- **`EMAIL_FIELD`, `PASSWORD_FIELD`, `LOGIN_BUTTON`**: coordenadas para clicar nos campos e no botão de login.
+- **`EMAIL_FIELD`**: coordenadas para clicar no campo e iniciar login.
 - **`BUTTON1`, `BUTTON2`, `FECHAR_WINDOW`**: coordenadas para ações após o login (ex.: ação 1, confirmar, fechar janela).
 
 > **Importante**: o arquivo `.env` contém senha. Não envie esse arquivo para o Git / repositórios remotos.
