@@ -56,15 +56,12 @@ def login():
     PASSWORD = os.getenv("PASSWORD", "")
     SITE = os.getenv("SITE", "").lower()
     EMAIL_FIELD = _parse_coords(os.getenv("EMAIL_FIELD", ""))
-    PASSWORD_FIELD = _parse_coords(os.getenv("PASSWORD_FIELD", ""))
-    LOGIN_BUTTON = _parse_coords(os.getenv("LOGIN_BUTTON", ""))
     BUTTON1 = _parse_coords(os.getenv("BUTTON1", ""))
     BUTTON2 = _parse_coords(os.getenv("BUTTON2", ""))
-    FECHAR_WINDOW = _parse_coords(os.getenv("FECHAR_WINDOW", ""))
     
     pyautogui.FAILSAFE = True
     pyautogui.PAUSE = 0.5
-    pyautogui.alert("O programa está sendo executado. Não mexa no mouse ou teclado.")
+    # pyautogui.alert("O programa está sendo executado. Não mexa no mouse ou teclado.")
 
     url = SITE
     chrome = _chrome_exe()
@@ -77,13 +74,13 @@ def login():
     _paste_text(USERNAME)
 
     print("Preenchendo o campo de senha...")
-    pyautogui.click(PASSWORD_FIELD)
-    time.sleep(0.4) # dar foco ao campo antes de colar
+    pyautogui.press("tab")
+    time.sleep(0.4) # Esperar para digitar a senha
     _paste_text(PASSWORD)
 
     print("Clicando no botão de login...")
     time.sleep(0.3)
-    pyautogui.click(LOGIN_BUTTON)
+    pyautogui.press("enter")
     print("Login realizado com sucesso!")
 
     print("Clicando no botão 1.")
@@ -96,7 +93,7 @@ def login():
 
     print("Clicando no botão de fechar janela...")
     time.sleep(0.5)
-    pyautogui.click(FECHAR_WINDOW)
+    pyautogui.hotkey("alt", "f4")
     print("Janela fechada com sucesso!")
 
 if __name__ == "__main__":
