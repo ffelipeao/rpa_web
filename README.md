@@ -1,23 +1,23 @@
 # rpa_web
 
-Automação RPA (Robotic Process Automation) que faz login em um sistema web e executa tarefas usando `pyautogui` (cliques e digitação automáticos) em uma janela anônima do Chrome.
+Automação RPA (Robotic Process Automation) que faz login em um sistema web e executa tarefas usando **Playwright**, interagindo com os elementos da página pelos **IDs do formulário** (sem depender de coordenadas da tela).
 
 ## Visão geral
 
 - **Objetivo**: abrir o site alvo, fazer login (usuário e senha) e executar sequências de cliques (ex.: botões pós-login).
-- **Automação**: baseada em coordenadas da tela (x, y) definidas no arquivo `.env`. Usuário e senha são **colados** (Ctrl+V) para suportar e-mail e caracteres especiais.
-- **Navegador**: Google Chrome em modo **anônimo** (`--incognito`).
+- **Automação**: baseada nos **IDs dos elementos** (campos e botões) definidos no arquivo `.env`. O Playwright localiza os elementos pelo `id` no HTML, evitando erros quando a tela ou a resolução mudam.
+- **Navegador**: Google Chrome (controlado pelo Playwright; usa o Chrome instalado no sistema).
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
 - **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros.
-- **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão de ação 2), útil para validar o fluxo até o botão 1.
+- **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão CONFIRMAR), útil para validar o fluxo até o botão "Bater ponto".
 
 ## Pré-requisitos
 
-- **Sistema**: Windows
-- **Python**: 3.13+ (gerenciado pelo `uv`)
+- **Sistema**: Windows (o script foi testado no Windows; Playwright também funciona em Linux/macOS).
+- **Python**: 3.13+ (gerenciado pelo `uv`).
 - **Ferramentas**:
   - [uv](https://docs.astral.sh/uv/)
-  - Google Chrome instalado
+  - Google Chrome instalado (o Playwright usa o Chrome do sistema por padrão).
 
 ## Configuração
 
@@ -30,18 +30,23 @@ USERNAME=seu_usuario_ou_email
 PASSWORD=sua_senha
 SITE=https://seu-site-alvo.com/
 
-# Posições do campo inicial (formato "(x, y)" ou "x=553, y=405")
-EMAIL_FIELD="(553, 405)"
-
-# Botões após o login (ajuste conforme o fluxo do seu sistema)
-BUTTON1="(1170, 177)"
-BUTTON2="(686, 428)"
+# IDs dos elementos do formulário (obrigatórios; inspecione a página com F12 para obter os valores)
+ID_USERNAME=P101_USERNAME
+ID_PASSWORD=P101_PASSWORD
+ID_LOGIN=P101_LOGIN
+ID_BOTAO_BATER_PONTO=B491409282691032647
+ID_BOTAO_CONFIRMAR=B491409745545032651
 ```
 
-- **`USERNAME` / `PASSWORD`**: credenciais de login (e-mail e senha com caracteres especiais são suportados via cola).
-- **`SITE`**: URL da página de login.
-- **`EMAIL_FIELD`**: coordenadas para clicar no campo e iniciar login.
-- **`BUTTON1`, `BUTTON2`, `FECHAR_WINDOW`**: coordenadas para ações após o login (ex.: ação 1, confirmar, fechar janela).
+- **`USERNAME` / `PASSWORD`**: credenciais de login.
+- **`SITE`**: URL da página de login (com ou sem `https://`).
+- **`ID_USERNAME`**: `id` do campo de usuário no HTML.
+- **`ID_PASSWORD`**: `id` do campo de senha.
+- **`ID_LOGIN`**: `id` do botão de login.
+- **`ID_BOTAO_BATER_PONTO`**: `id` do botão da primeira ação (ex.: "Bater ponto").
+- **`ID_BOTAO_CONFIRMAR`**: `id` do botão de confirmação (Passo 9).
+
+Todas as variáveis `ID_*` são **obrigatórias**. Se alguma não estiver definida, o script encerra com mensagem de erro indicando quais faltam.
 
 > **Importante**: o arquivo `.env` contém senha. Não envie esse arquivo para o Git / repositórios remotos.
 
@@ -61,41 +66,45 @@ Exemplo de linhas válidas:
 04/06/2026 - Corpus Christi
 ```
 
-### 3. Descobrir as coordenadas dos elementos
+### 3. Descobrir os IDs dos elementos
 
-Use o script `auxiliar.py` para descobrir a posição do mouse na tela:
+Os IDs são os atributos `id` dos elementos no HTML. Para obtê-los:
 
-```bash
-uv run auxiliar.py
-```
+1. Abra o site no navegador e vá até a página de login (ou a tela com os botões de ação).
+2. Pressione **F12** para abrir as Ferramentas do Desenvolvedor.
+3. Use a ferramenta **Selecionar elemento** (ícone de seta) e clique no campo ou botão desejado.
+4. No painel **Elements**, o elemento destacado terá algo como `id="P101_USERNAME"`. Use esse valor no `.env` (ex.: `ID_USERNAME=P101_USERNAME`).
 
-- Você terá **5 segundos** para posicionar o mouse sobre o campo/botão desejado.
-- Após isso, o script imprime algo como `Point(x=553, y=405)` no terminal.
-- Use esses valores no `.env` em `EMAIL_FIELD`, `PASSWORD_FIELD`, `LOGIN_BUTTON`, `BUTTON1`, `BUTTON2`, etc.
+Repita para o campo de senha, botão de login, botão "Bater ponto" e botão "CONFIRMAR", e preencha as variáveis correspondentes no `.env`.
 
 ## Como o script funciona
 
 O `main.py` executa, em sequência:
 
 1. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
-2. Carrega o `.env` com `load_dotenv(override=True)` (no Windows, isso evita que `USERNAME` do sistema sobrescreva o do `.env`).
-3. Lê credenciais, `SITE` e coordenadas (formato `"(x, y)"` ou `"x=553, y=405"`).
-4. Abre o Chrome em modo anônimo na URL configurada e espera a página carregar (~5 s).
-5. Clica no campo de e-mail, **cola** o usuário (Ctrl+V). Clica no campo de senha, **cola** a senha. Clica no botão de login.
-6. Após o login: clica em `BUTTON1`, depois `BUTTON2`, depois fecha a janela (Alt+F4).
+2. Carrega o `.env` e valida se todas as variáveis `ID_*` estão definidas.
+3. Abre o Chrome (via Playwright) na URL configurada e espera o formulário de login estar visível.
+4. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
+5. Aguarda a página pós-login carregar (botão "Bater ponto" visível).
+6. Clica no botão da primeira ação (ex.: "Bater ponto") pelo ID.
+7. Se não estiver em modo `--test`, clica no botão CONFIRMAR pelo ID (ou por texto, se estiver dentro de modal).
+8. Fecha o navegador.
 
-Usuário e senha são colados via clipboard (`pyperclip` + Ctrl+V) para funcionar com e-mail e caracteres especiais (`@`, `+`, `?`, etc.).
+A interação é feita pelo **Playwright**, que localiza os elementos pelo `id` no HTML, sem usar coordenadas da tela.
 
 ## Como rodar o projeto
 
 Após clonar o repositório:
 
 ```bash
-uv sync          # instala as dependências (pyautogui, pyperclip, python-dotenv, etc.)
-uv run main.py   # executa a automação completa (todos os passos)
+uv sync                    # instala as dependências (playwright, python-dotenv, etc.)
+playwright install chrome  # instala o browser para o Playwright (ou use o Chrome já instalado)
+uv run main.py             # executa a automação completa (todos os passos)
 ```
 
-**Modo teste** (não executa o Passo 9 — clique no botão de ação 2):
+O script usa o Chrome instalado no sistema (`channel="chrome"`). Se preferir o Chromium gerenciado pelo Playwright, use `playwright install chromium` e ajuste o código para não usar `channel="chrome"`.
+
+**Modo teste** (não executa o Passo 9 — clique no botão CONFIRMAR):
 
 ```bash
 uv run main.py --test
@@ -113,13 +122,13 @@ Se estiver em PowerShell e o uv mostrar o aviso de hardlink, veja a seção de t
 
 Use o argumento `--test` quando quiser:
 
-- Validar o fluxo até o **Passo 8** (clique no botão 1) sem disparar a ação do **Passo 9** (botão 2).
-- Evitar efeitos reais da ação do botão 2 em ambiente de produção ou em testes rápidos.
+- Validar o fluxo até o clique em "Bater ponto" sem disparar o clique em **CONFIRMAR** (Passo 9).
+- Evitar efeitos reais da ação do botão CONFIRMAR em ambiente de produção ou em testes rápidos.
 
-O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O restante da automação (login, botão 1, fechamento da janela) é executado normalmente.
+O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O restante da automação (login, botão "Bater ponto", fechamento do navegador) é executado normalmente.
 
-| Comando | Passo 9 (botão 2) |
-|--------|--------------------|
+| Comando | Passo 9 (botão CONFIRMAR) |
+|--------|---------------------------|
 | `uv run main.py` | Executado |
 | `uv run main.py --test` | Não executado |
 

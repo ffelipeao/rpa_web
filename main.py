@@ -1,17 +1,14 @@
 import argparse
 import os
-import re
-import subprocess
-import time
 from datetime import date, datetime
 from pathlib import Path
 import logging
 
-import pyautogui
-import pygetwindow as gw
-import pyperclip
 from dotenv import load_dotenv
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
+# Carrega .env antes de ler qualquer variável de ambiente usada no módulo
+load_dotenv(override=True)
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -28,34 +25,17 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# IDs dos elementos do formulário: vêm do .env (obrigatórios)
+ID_USERNAME = os.getenv("ID_USERNAME")
+ID_PASSWORD = os.getenv("ID_PASSWORD")
+ID_LOGIN = os.getenv("ID_LOGIN")
+ID_BOTAO_BATER_PONTO = os.getenv("ID_BOTAO_BATER_PONTO")
+ID_BOTAO_CONFIRMAR = os.getenv("ID_BOTAO_CONFIRMAR")
 
-def _parse_coords(value: str) -> tuple[int, int]:
-    """Converte 'x=553, y=405' ou '553, 405' em (553, 405)."""
-    if not value:
-        raise ValueError("Coordenadas vazias")
-    nums = re.findall(r"\d+", value)
-    if len(nums) >= 2:
-        return (int(nums[0]), int(nums[1]))
-    raise ValueError(f"Coordenadas inválidas: {value!r}")
-
-# Caminhos comuns do Chrome no Windows
-CHROME_PATHS = [
-    Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
-    Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
-]
-
-def _chrome_exe():
-    for p in CHROME_PATHS:
-        if p.exists():
-            print(str(p))
-            return str(p)
-    return "chrome"  # fallback: usa o do PATH (se existir)
-
-
-def _paste_text(text: str) -> None:
-    """Cola texto via clipboard (evita problema com @, +, ?, etc. no pyautogui.write)."""
-    pyperclip.copy(text)
-    pyautogui.hotkey("ctrl", "v")
+# Timeouts em ms
+TIMEOUT_NAVEGACAO = 30_000
+TIMEOUT_ELEMENTO = 15_000
+TIMEOUT_MODAL = 10_000
 
 
 def _is_invalid_today() -> bool:
@@ -76,7 +56,6 @@ def _is_invalid_today() -> bool:
         if not line:
             continue
 
-        # pega só o primeiro "token" da linha (antes de espaços ou "-")
         token = line.split()[0]
         token = token.split("-", 1)[0].strip()
         if not token:
@@ -84,12 +63,13 @@ def _is_invalid_today() -> bool:
 
         for fmt in ("%d/%m/%Y", "%d/%m"):
             try:
-                parsed = datetime.strptime(token, fmt).date()
-                # se veio sem ano, trata como recorrente
                 if fmt == "%d/%m":
+                    # Ano explícito para evitar DeprecationWarning (Python 3.15+)
+                    parsed = datetime.strptime(f"{token}/{today.year}", "%d/%m/%Y").date()
                     if parsed.day == today.day and parsed.month == today.month:
                         return True
                 else:
+                    parsed = datetime.strptime(token, fmt).date()
                     if parsed == today:
                         return True
                 break
@@ -98,10 +78,11 @@ def _is_invalid_today() -> bool:
 
     return False
 
+
 def main(*, test: bool = False) -> int:
     try:
         if test:
-            logger.info("Modo teste ativo: Passo 9 (botão de ação 2) não será executado.")
+            logger.info("Modo teste ativo: Passo 9 (botão CONFIRMAR) não será executado.")
         if _is_invalid_today():
             logger.info(
                 "Data atual está na lista de datas inválidas (data_invalidas.txt). Automatização não será executada."
@@ -109,91 +90,110 @@ def main(*, test: bool = False) -> int:
             return 0
 
         logger.info("Iniciando o programa...")
-        load_dotenv(override=True)  # override=True: .env sobrescreve USERNAME do Windows
+        load_dotenv(override=True)
+
+        # Valida variáveis de ambiente obrigatórias (IDs do formulário)
+        ids_obrigatorios = {
+            "ID_USERNAME": ID_USERNAME,
+            "ID_PASSWORD": ID_PASSWORD,
+            "ID_LOGIN": ID_LOGIN,
+            "ID_BOTAO_BATER_PONTO": ID_BOTAO_BATER_PONTO,
+            "ID_BOTAO_CONFIRMAR": ID_BOTAO_CONFIRMAR,
+        }
+        faltando = [k for k, v in ids_obrigatorios.items() if not (v and str(v).strip())]
+        if faltando:
+            logger.error(
+                "Variáveis obrigatórias não configuradas no .env: %s. Defina todas antes de executar.",
+                ", ".join(faltando),
+            )
+            return 1
 
         USERNAME = os.getenv("USERNAME", "")
         PASSWORD = os.getenv("PASSWORD", "")
-        SITE = os.getenv("SITE", "").lower()
-        EMAIL_FIELD = _parse_coords(os.getenv("EMAIL_FIELD", ""))
-        BUTTON1 = _parse_coords(os.getenv("BUTTON1", ""))
-        BUTTON2 = _parse_coords(os.getenv("BUTTON2", ""))
+        SITE = os.getenv("SITE", "").strip()
+        if not SITE:
+            logger.error("SITE não configurado no .env.")
+            return 1
+        if not SITE.startswith(("http://", "https://")):
+            SITE = "https://" + SITE
 
-        logger.info("Configurações carregadas. SITE=%s, EMAIL_FIELD=%s, BUTTON1=%s, BUTTON2=%s",
-                    SITE, EMAIL_FIELD, BUTTON1, BUTTON2)
+        logger.info("Configurações carregadas. SITE=%s (login por IDs do formulário).", SITE)
 
-        pyautogui.FAILSAFE = True
-        pyautogui.PAUSE = 0.5
+        with sync_playwright() as p:
+            # Usa o Chrome instalado; modo anônimo via context
+            browser = p.chromium.launch(
+                channel="chrome",
+                headless=False,
+            )
+            context = browser.new_context()
+            page = context.new_page()
+            page.set_default_timeout(TIMEOUT_ELEMENTO)
+            page.set_default_navigation_timeout(TIMEOUT_NAVEGACAO)
 
-        # Passo 1: Entrar no site da empresa
-        # Passo 2: Navegar até a página de login
-        logger.info("Abrindo Chrome em modo anônimo na URL configurada.")
-        url = SITE
-        chrome = _chrome_exe()
-        subprocess.Popen([chrome, "--incognito", url])
-        time.sleep(7)  # esperar a janela anônima e a página carregar (aumente se a rede for lenta)
+            try:
+                # Passo 1 e 2: Abrir site e carregar página de login
+                logger.info("Abrindo %s", SITE)
+                page.goto(SITE, wait_until="domcontentloaded")
+                page.wait_for_load_state("load", timeout=TIMEOUT_NAVEGACAO)
+                # Aguarda o formulário de login estar visível (mais confiável que networkidle)
+                page.locator(f"#{ID_USERNAME}").wait_for(state="visible", timeout=TIMEOUT_ELEMENTO)
 
-        # Maximizar o navegador (atalho Windows: Win+Up) só se ainda não estiver maximizado
-        active = gw.getActiveWindow()
-        if active is not None and not getattr(active, "isMaximized", False):
-            logger.info("Maximizando janela ativa do navegador.")
-            pyautogui.hotkey("win", "up")
-            time.sleep(3)  # aguardar a animação de maximizar
-        else:
-            logger.info("Janela já está maximizada ou não foi possível obter janela ativa.")
+                # Passo 3: Preencher usuário
+                logger.info("Preenchendo o campo de usuário (id=%s).", ID_USERNAME)
+                page.locator(f"#{ID_USERNAME}").fill(USERNAME)
 
-        # Passo 3: Preencher o campo de e-mail
-        logger.info("Preenchendo o campo de e-mail nas coordenadas %s.", EMAIL_FIELD)
-        pyautogui.click(EMAIL_FIELD)
-        time.sleep(3)  # dar foco ao campo antes de colar
-        _paste_text(USERNAME)
+                # Passo 4: Preencher senha
+                logger.info("Preenchendo o campo de senha (id=%s).", ID_PASSWORD)
+                page.locator(f"#{ID_PASSWORD}").fill(PASSWORD)
 
-        # Passo 4: Preencher o campo de senha
-        logger.info("Preenchendo o campo de senha.")
-        pyautogui.press("tab")
-        time.sleep(3)  # Esperar para digitar a senha
-        _paste_text(PASSWORD)
+                # Passo 5 e 6: Clicar no botão de login
+                logger.info("Clicando no botão de login (id=%s).", ID_LOGIN)
+                page.locator(f"#{ID_LOGIN}").click()
+                page.wait_for_load_state("load", timeout=TIMEOUT_NAVEGACAO)
+                # Aguarda a página pós-login (botão "Bater ponto" visível)
+                page.locator(f"#{ID_BOTAO_BATER_PONTO}").wait_for(state="visible", timeout=TIMEOUT_ELEMENTO)
+                logger.info("Login enviado. Página pós-login carregada.")
 
-        # Passo 5: Clicar no botão de login
-        logger.info("Clicando no botão de login (Enter).")
-        time.sleep(3)
-        pyautogui.press("enter")
-        # Passo 6: Verificar se o login foi realizado com sucesso
-        logger.info("Login: ação de envio executada. Verificando resultado visualmente na tela.")
+                # Passo 7 e 8: Clicar em "Bater ponto"
+                logger.info("Clicando no botão Bater ponto (id=%s).", ID_BOTAO_BATER_PONTO)
+                page.locator(f"#{ID_BOTAO_BATER_PONTO}").click()
+                page.wait_for_timeout(1500)  # tempo para o modal abrir
 
-        # Passo 7: Navegar até a página de ação 1
-        # Passo 8: Clicar no botão de ação 1
-        logger.info("Clicando no botão 1 nas coordenadas %s.", BUTTON1)
-        time.sleep(0.5)
-        pyautogui.click(BUTTON1)
+                # Passo 9: Clicar em CONFIRMAR (omitido em modo --test)
+                if not test:
+                    logger.info("Clicando no botão CONFIRMAR (id=%s).", ID_BOTAO_CONFIRMAR)
+                    try:
+                        btn_confirmar = page.locator(f"#{ID_BOTAO_CONFIRMAR}")
+                        btn_confirmar.wait_for(state="visible", timeout=TIMEOUT_MODAL)
+                        btn_confirmar.click()
+                    except PlaywrightTimeoutError:
+                        # Pode estar dentro de um iframe/modal; tenta por texto
+                        logger.info("Botão por ID não visível; tentando por texto 'CONFIRMAR'.")
+                        page.get_by_role("button", name="CONFIRMAR").first.click()
+                    page.wait_for_timeout(2000)
+                else:
+                    logger.info("Modo teste: Passo 9 (CONFIRMAR) ignorado.")
 
-        # Passo 9: Clicar no botão de ação 2 (omitido em modo --test)
-        if not test:
-            logger.info("Clicando no botão 2 nas coordenadas %s.", BUTTON2)
-            time.sleep(0.5)
-            pyautogui.click(BUTTON2)
-        else:
-            logger.info("Modo teste: Passo 9 (botão 2) ignorado.")
+                logger.info("Automatização concluída com sucesso.")
+            finally:
+                page.wait_for_timeout(2_000)
+                browser.close()
 
-        # Passo 10: Clicar no botão de fechar janela
-        logger.info("Fechando a janela do navegador (Alt+F4).")
-        time.sleep(3)
-        pyautogui.hotkey("alt", "f4")
-        logger.info("Janela fechada com sucesso.")
-        time.sleep(3)
-
-        logger.info("Automatização concluída com sucesso.")
         return 0
+    except PlaywrightTimeoutError as e:
+        logger.exception("Timeout ao aguardar elemento ou navegação: %s", e)
+        return 1
     except Exception:
         logger.exception("Erro inesperado durante a execução da automatização.")
         return 1
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automatização RPA Web.")
+    parser = argparse.ArgumentParser(description="Automatização RPA Web (Playwright).")
     parser.add_argument(
         "--test",
         action="store_true",
-        help="Modo teste: executa a automação sem o Passo 9 (clique no botão de ação 2).",
+        help="Modo teste: executa a automação sem o Passo 9 (clique em CONFIRMAR).",
     )
     args = parser.parse_args()
     raise SystemExit(main(test=args.test))
