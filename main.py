@@ -29,13 +29,16 @@ logger = logging.getLogger(__name__)
 ID_USERNAME = os.getenv("ID_USERNAME")
 ID_PASSWORD = os.getenv("ID_PASSWORD")
 ID_LOGIN = os.getenv("ID_LOGIN")
-ID_BOTAO_BATER_PONTO = os.getenv("ID_BOTAO_BATER_PONTO")
-ID_BOTAO_CONFIRMAR = os.getenv("ID_BOTAO_CONFIRMAR")
+ID_BOTAO_1 = os.getenv("ID_BOTAO_1")
+ID_BOTAO_2 = os.getenv("ID_BOTAO_2")
 
-# Timeouts em ms
+# Timeouts em ms (tempo máximo de espera por navegação/elemento)
 TIMEOUT_NAVEGACAO = 30_000
-TIMEOUT_ELEMENTO = 15_000
-TIMEOUT_MODAL = 10_000
+TIMEOUT_ELEMENTO = 20_000
+TIMEOUT_MODAL = 20_000
+
+# Pausa antes de cada ação na página (ms), para parecer mais humano e reduzir detecção de bot
+PAUSA_ANTES_ACAO_MS = 3_000
 
 
 def _is_invalid_today() -> bool:
@@ -97,8 +100,8 @@ def main(*, test: bool = False) -> int:
             "ID_USERNAME": ID_USERNAME,
             "ID_PASSWORD": ID_PASSWORD,
             "ID_LOGIN": ID_LOGIN,
-            "ID_BOTAO_BATER_PONTO": ID_BOTAO_BATER_PONTO,
-            "ID_BOTAO_CONFIRMAR": ID_BOTAO_CONFIRMAR,
+            "ID_BOTAO_1": ID_BOTAO_1,
+            "ID_BOTAO_2": ID_BOTAO_2,
         }
         faltando = [k for k, v in ids_obrigatorios.items() if not (v and str(v).strip())]
         if faltando:
@@ -139,44 +142,46 @@ def main(*, test: bool = False) -> int:
                 page.locator(f"#{ID_USERNAME}").wait_for(state="visible", timeout=TIMEOUT_ELEMENTO)
 
                 # Passo 3: Preencher usuário
+                page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 logger.info("Preenchendo o campo de usuário (id=%s).", ID_USERNAME)
                 page.locator(f"#{ID_USERNAME}").fill(USERNAME)
 
                 # Passo 4: Preencher senha
+                page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 logger.info("Preenchendo o campo de senha (id=%s).", ID_PASSWORD)
                 page.locator(f"#{ID_PASSWORD}").fill(PASSWORD)
 
                 # Passo 5 e 6: Clicar no botão de login
+                page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 logger.info("Clicando no botão de login (id=%s).", ID_LOGIN)
                 page.locator(f"#{ID_LOGIN}").click()
                 page.wait_for_load_state("load", timeout=TIMEOUT_NAVEGACAO)
-                # Aguarda a página pós-login (botão "Bater ponto" visível)
-                page.locator(f"#{ID_BOTAO_BATER_PONTO}").wait_for(state="visible", timeout=TIMEOUT_ELEMENTO)
+                page.locator(f"#{ID_BOTAO_1}").wait_for(state="visible", timeout=TIMEOUT_ELEMENTO)
                 logger.info("Login enviado. Página pós-login carregada.")
 
-                # Passo 7 e 8: Clicar em "Bater ponto"
-                logger.info("Clicando no botão Bater ponto (id=%s).", ID_BOTAO_BATER_PONTO)
-                page.locator(f"#{ID_BOTAO_BATER_PONTO}").click()
-                page.wait_for_timeout(1500)  # tempo para o modal abrir
+                # Passo 7 e 8: Botão de ação 1
+                page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
+                logger.info("Clicando no botão de ação 1 (id=%s).", ID_BOTAO_1)
+                page.locator(f"#{ID_BOTAO_1}").click()
+                page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
 
                 # Passo 9: Clicar em CONFIRMAR (omitido em modo --test)
                 if not test:
-                    logger.info("Clicando no botão CONFIRMAR (id=%s).", ID_BOTAO_CONFIRMAR)
+                    page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
+                    logger.info("Clicando no botão de ação 2 (id=%s).", ID_BOTAO_2)
                     try:
-                        btn_confirmar = page.locator(f"#{ID_BOTAO_CONFIRMAR}")
+                        btn_confirmar = page.locator(f"#{ID_BOTAO_2}")
                         btn_confirmar.wait_for(state="visible", timeout=TIMEOUT_MODAL)
                         btn_confirmar.click()
                     except PlaywrightTimeoutError:
-                        # Pode estar dentro de um iframe/modal; tenta por texto
-                        logger.info("Botão por ID não visível; tentando por texto 'CONFIRMAR'.")
                         page.get_by_role("button", name="CONFIRMAR").first.click()
-                    page.wait_for_timeout(2000)
+                    page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 else:
                     logger.info("Modo teste: Passo 9 (CONFIRMAR) ignorado.")
 
                 logger.info("Automatização concluída com sucesso.")
             finally:
-                page.wait_for_timeout(2_000)
+                page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 browser.close()
 
         return 0
@@ -189,7 +194,7 @@ def main(*, test: bool = False) -> int:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automatização RPA Web (Playwright).")
+    parser = argparse.ArgumentParser(description="Automatização web (Playwright).")
     parser.add_argument(
         "--test",
         action="store_true",
