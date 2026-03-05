@@ -165,16 +165,24 @@ def main(*, test: bool = False) -> int:
                 page.locator(f"#{ID_BOTAO_1}").click()
                 page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
 
-                # Passo 9: Clicar em CONFIRMAR (omitido em modo --test)
+                # Passo 9: Clicar em CONFIRMAR dentro do modal (botão está no iframe do modal)
                 if not test:
                     page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
-                    logger.info("Clicando no botão de ação 2 (id=%s).", ID_BOTAO_2)
+                    logger.info("Aguardando modal e clicando no botão de ação 2 (id=%s) dentro do iframe.", ID_BOTAO_2)
                     try:
-                        btn_confirmar = page.locator(f"#{ID_BOTAO_2}")
+                        # Aguarda o modal estar visível
+                        page.locator(".vch-modal-dialog.modal").wait_for(state="visible", timeout=TIMEOUT_MODAL)
+                        # O botão CONFIRMAR está dentro do iframe do modal
+                        frame = page.frame_locator(".vch-modal-iframe")
+                        btn_confirmar = frame.locator(f"#{ID_BOTAO_2}")
                         btn_confirmar.wait_for(state="visible", timeout=TIMEOUT_MODAL)
+                        logger.info("Opção 1: Clicando no botão de ação 2 (id=%s) dentro do iframe.", ID_BOTAO_2)
                         btn_confirmar.click()
                     except PlaywrightTimeoutError:
-                        page.get_by_role("button", name="CONFIRMAR").first.click()
+                        # Fallback: botão por texto dentro do iframe
+                        frame = page.frame_locator(".vch-modal-iframe")
+                        logger.info("Opção 2: Clicando no botão de ação 2 (texto=CONFIRMAR) dentro do iframe.")
+                        frame.get_by_role("button", name="CONFIRMAR").first.click()
                     page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 else:
                     logger.info("Modo teste: Passo 9 (CONFIRMAR) ignorado.")
