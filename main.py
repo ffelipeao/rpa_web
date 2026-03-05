@@ -106,6 +106,11 @@ def main(*, test: bool = False) -> int:
     try:
         if test:
             logger.info("Modo teste ativo: Passo 9 (botão CONFIRMAR) não será executado.")
+            
+        # Não executa em fins de semana (sábado/domingo)
+        if date.today().weekday() >= 5:
+            logger.info("Hoje não é dia útil (sábado/domingo). Automatização não será executada.")
+            return 0
         if _is_invalid_today():
             logger.info(
                 "Data atual está na lista de datas inválidas (data_invalidas.txt). Automatização não será executada."

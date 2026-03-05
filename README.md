@@ -7,6 +7,7 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 - **Objetivo**: abrir o site alvo, fazer login (usuário e senha) e executar sequências de cliques (ex.: botões pós-login).
 - **Automação**: baseada nos **IDs dos elementos** (campos e botões) definidos no arquivo `.env`. O Playwright localiza os elementos pelo `id` no HTML, evitando erros quando a tela ou a resolução mudam.
 - **Navegador**: Google Chrome (controlado pelo Playwright; usa o Chrome instalado no sistema).
+- **Dias de execução**: a automação só roda em **dias úteis (segunda a sexta)**. Sábados e domingos são ignorados automaticamente.
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
 - **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros. Ao final da tarefa, o script **remove automaticamente** arquivos de log com mais de 10 dias.
 - **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão CONFIRMAR), útil para validar o fluxo até o botão "CONFIRMAR".
@@ -81,15 +82,16 @@ Repita para o campo de senha, botão de login, botão 1 "Ação 1" e botão "CON
 
 O `main.py` executa, em sequência:
 
-1. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
-2. Carrega o `.env` e valida se todas as variáveis `ID_*` estão definidas.
-3. Abre o Chrome (via Playwright) na URL configurada e espera o formulário de login estar visível.
-4. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
-5. Aguarda a página pós-login carregar.
-6. Clica no botão da primeira ação pelo ID.
-7. Se não estiver em modo `--test`, clica no botão de confirmação final (Passo 9) pelo ID; se o botão estiver dentro de um modal com iframe, a automação tenta localizar o botão dentro do iframe e, em último caso, pelo texto **\"CONFIRMAR\"**.
-8. Fecha o navegador.
-9. **Remove arquivos de log** em `logs/` com mais de 10 dias (por data de modificação), para evitar acúmulo indefinido de arquivos.
+1. **Verifica se hoje é dia útil** (segunda a sexta). Se for sábado ou domingo, exibe uma mensagem e encerra sem executar a automação.
+2. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
+3. Carrega o `.env` e valida se todas as variáveis `ID_*` estão definidas.
+4. Abre o Chrome (via Playwright) na URL configurada e espera o formulário de login estar visível.
+5. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
+6. Aguarda a página pós-login carregar.
+7. Clica no botão da primeira ação pelo ID.
+8. Se não estiver em modo `--test`, clica no botão de confirmação final (Passo 9) pelo ID; se o botão estiver dentro de um modal com iframe, a automação tenta localizar o botão dentro do iframe e, em último caso, pelo texto **\"CONFIRMAR\"**.
+9. Fecha o navegador.
+10. **Remove arquivos de log** em `logs/` com mais de 10 dias (por data de modificação), para evitar acúmulo indefinido de arquivos.
 
 A interação é feita pelo **Playwright**, que localiza os elementos pelo `id` no HTML, sem usar coordenadas da tela.
 
