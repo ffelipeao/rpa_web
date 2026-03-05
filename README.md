@@ -9,7 +9,7 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 - **Navegador**: Google Chrome (controlado pelo Playwright; usa o Chrome instalado no sistema).
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
 - **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros.
-- **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão CONFIRMAR), útil para validar o fluxo até o botão "Bater ponto".
+- **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão CONFIRMAR), útil para validar o fluxo até o botão "CONFIRMAR".
 
 ## Pré-requisitos
 
@@ -34,8 +34,8 @@ SITE=https://seu-site-alvo.com/
 ID_USERNAME=P101_USERNAME
 ID_PASSWORD=P101_PASSWORD
 ID_LOGIN=P101_LOGIN
-ID_BOTAO_BATER_PONTO=B491409282691032647
-ID_BOTAO_CONFIRMAR=B491409745545032651
+ID_BOTAO_1=B491409282691032647
+ID_BOTAO_2=B491409745545032651
 ```
 
 - **`USERNAME` / `PASSWORD`**: credenciais de login.
@@ -43,8 +43,8 @@ ID_BOTAO_CONFIRMAR=B491409745545032651
 - **`ID_USERNAME`**: `id` do campo de usuário no HTML.
 - **`ID_PASSWORD`**: `id` do campo de senha.
 - **`ID_LOGIN`**: `id` do botão de login.
-- **`ID_BOTAO_BATER_PONTO`**: `id` do botão da primeira ação (ex.: "Bater ponto").
-- **`ID_BOTAO_CONFIRMAR`**: `id` do botão de confirmação (Passo 9).
+- **`ID_BOTAO_1`**: `id` do botão da primeira ação.
+- **`ID_BOTAO_2`**: `id` do botão de confirmação final (Passo 9).
 
 Todas as variáveis `ID_*` são **obrigatórias**. Se alguma não estiver definida, o script encerra com mensagem de erro indicando quais faltam.
 
@@ -75,7 +75,7 @@ Os IDs são os atributos `id` dos elementos no HTML. Para obtê-los:
 3. Use a ferramenta **Selecionar elemento** (ícone de seta) e clique no campo ou botão desejado.
 4. No painel **Elements**, o elemento destacado terá algo como `id="P101_USERNAME"`. Use esse valor no `.env` (ex.: `ID_USERNAME=P101_USERNAME`).
 
-Repita para o campo de senha, botão de login, botão "Bater ponto" e botão "CONFIRMAR", e preencha as variáveis correspondentes no `.env`.
+Repita para o campo de senha, botão de login, botão 1 "Ação 1" e botão "CONFIRMAR" Ação 2, e preencha as variáveis correspondentes no `.env`.
 
 ## Como o script funciona
 
@@ -85,9 +85,9 @@ O `main.py` executa, em sequência:
 2. Carrega o `.env` e valida se todas as variáveis `ID_*` estão definidas.
 3. Abre o Chrome (via Playwright) na URL configurada e espera o formulário de login estar visível.
 4. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
-5. Aguarda a página pós-login carregar (botão "Bater ponto" visível).
-6. Clica no botão da primeira ação (ex.: "Bater ponto") pelo ID.
-7. Se não estiver em modo `--test`, clica no botão CONFIRMAR pelo ID (ou por texto, se estiver dentro de modal).
+5. Aguarda a página pós-login carregar.
+6. Clica no botão da primeira ação pelo ID.
+7. Se não estiver em modo `--test`, clica no botão de confirmação final (Passo 9) pelo ID; se o botão estiver dentro de um modal com iframe, a automação tenta localizar o botão dentro do iframe e, em último caso, pelo texto **\"CONFIRMAR\"**.
 8. Fecha o navegador.
 
 A interação é feita pelo **Playwright**, que localiza os elementos pelo `id` no HTML, sem usar coordenadas da tela.
@@ -122,10 +122,10 @@ Se estiver em PowerShell e o uv mostrar o aviso de hardlink, veja a seção de t
 
 Use o argumento `--test` quando quiser:
 
-- Validar o fluxo até o clique em "Bater ponto" sem disparar o clique em **CONFIRMAR** (Passo 9).
+- Validar o fluxo até o clique em "Ação 1" sem disparar o clique em **CONFIRMAR** (Passo 9).
 - Evitar efeitos reais da ação do botão CONFIRMAR em ambiente de produção ou em testes rápidos.
 
-O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O restante da automação (login, botão "Bater ponto", fechamento do navegador) é executado normalmente.
+O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O restante da automação (login, botão Botão 1, fechamento do navegador) é executado normalmente.
 
 | Comando | Passo 9 (botão CONFIRMAR) |
 |--------|---------------------------|
