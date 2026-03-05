@@ -1,6 +1,6 @@
 import argparse
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import logging
 
@@ -39,6 +39,26 @@ TIMEOUT_MODAL = 20_000
 
 # Pausa antes de cada ação na página (ms), para parecer mais humano e reduzir detecção de bot
 PAUSA_ANTES_ACAO_MS = 3_000
+
+# Quantidade de dias para manter arquivos de log; arquivos mais antigos são removidos ao final da tarefa
+DIAS_RETENCAO_LOG = 10
+
+
+def _remover_logs_antigos(dias: int = DIAS_RETENCAO_LOG) -> None:
+    """Remove arquivos de log em LOG_DIR com mais de `dias` dias (por data de modificação)."""
+    if not LOG_DIR.exists():
+        return
+    limite = (datetime.now() - timedelta(days=dias)).timestamp()
+    removidos = 0
+    for f in LOG_DIR.glob("*.log"):
+        try:
+            if f.stat().st_mtime < limite:
+                f.unlink()
+                removidos += 1
+        except OSError:
+            pass
+    if removidos:
+        logger.info("Removidos %d arquivo(s) de log com mais de %d dias.", removidos, dias)
 
 
 def _is_invalid_today() -> bool:
@@ -199,6 +219,8 @@ def main(*, test: bool = False) -> int:
     except Exception:
         logger.exception("Erro inesperado durante a execução da automatização.")
         return 1
+    finally:
+        _remover_logs_antigos()
 
 
 if __name__ == "__main__":
