@@ -33,9 +33,9 @@ ID_BOTAO_1 = os.getenv("ID_BOTAO_1")
 ID_BOTAO_2 = os.getenv("ID_BOTAO_2")
 
 # Timeouts em ms (tempo máximo de espera por navegação/elemento)
-TIMEOUT_NAVEGACAO = 30_000
-TIMEOUT_ELEMENTO = 20_000
-TIMEOUT_MODAL = 20_000
+TIMEOUT_NAVEGACAO = 15_000
+TIMEOUT_ELEMENTO = 15_000
+TIMEOUT_MODAL = 15_000
 
 # Pausa antes de cada ação na página (ms), para parecer mais humano e reduzir detecção de bot
 PAUSA_ANTES_ACAO_MS = 3_000

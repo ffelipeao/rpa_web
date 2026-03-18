@@ -120,6 +120,49 @@ uv run main.py             # depois execute a automação completa
 
 O script usa o Chrome instalado no sistema (`channel="chrome"`). Se preferir o Chromium gerenciado pelo Playwright, use `playwright install chromium` e ajuste o código para não usar `channel="chrome"`.
 
+## Agendamento de Tarefas
+
+Como o `main.py` já verifica **dias úteis (segunda a sexta)** e consulta `data_invalidas.txt`, você pode agendar com frequência maior (ex.: 1x por dia) e ele simplesmente encerra quando não for permitido.
+
+### macOS e Linux (crontab)
+
+- Garanta que você consegue rodar manualmente: `uv sync` e `uv run main.py`.
+- Edite a crontab: `crontab -e`.
+- Adicione uma linha (exemplo: todo dia 09:00):
+
+```cron
+0 9 * * * /bin/bash -lc 'cd /Users/SEU_USUARIO/GitHub/rpa_web && ~/.local/bin/uv run main.py'
+```
+
+Observações:
+- No `cron`, o PATH é mais “limpo”; por isso use caminho absoluto para o `uv` e para o diretório do projeto.
+- Como o script abre o Chrome com interface (`headless=False`), é mais seguro agendar quando você estiver logado na sua sessão.
+
+Se preferir rodar só em dias úteis (segunda a sexta), use:
+
+```cron
+0 9 * * 1-5 /bin/bash -lc 'cd /Users/SEU_USUARIO/GitHub/rpa_web && ~/.local/bin/uv run main.py'
+```
+
+### Windows (Agendador de Tarefas)
+
+- Verifique antes manualmente: `uv sync` e `uv run main.py`.
+- Abra o **Agendador de Tarefas**.
+- Crie uma tarefa (exemplo: nome `rpa_web` e gatilho diário às 09:00, ou a frequência que você preferir).
+- Em **Ação**, selecione “Iniciar um programa”.
+- Para evitar problema de PATH, use `cmd.exe`:
+
+- **Programa/script**: `cmd.exe`
+- **Argumentos** (ajuste o caminho):
+
+```text
+/c "cd /d C:\CAMINHO\PARA\rpa_web && uv run main.py"
+```
+
+Observações:
+- Se o `uv` não for encontrado pelo Agendador, descubra o caminho com `where uv` e use o caminho completo do `uv.exe`.
+- Como o script abre o Chrome com interface (`headless=False`), configure para executar quando o usuário estiver conectado para evitar falhas de sessão sem UI.
+
 **Modo teste** (não executa o Passo 9 — clique no botão CONFIRMAR):
 
 ```bash
