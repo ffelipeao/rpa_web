@@ -32,11 +32,11 @@ PASSWORD=sua_senha
 SITE=https://seu-site-alvo.com/
 
 # IDs dos elementos do formulário (obrigatórios; inspecione a página com F12 para obter os valores)
-ID_USERNAME=P101_USERNAME
-ID_PASSWORD=P101_PASSWORD
-ID_LOGIN=P101_LOGIN
-ID_BOTAO_1=B491409282691032647
-ID_BOTAO_2=B491409745545032651
+ID_USERNAME=ID_USERNAME
+ID_PASSWORD=ID_PASSWORD
+ID_LOGIN=ID_LOGIN
+ID_BOTAO_1=ID_BOTAO_1
+ID_BOTAO_2=ID_BOTAO_2
 ```
 
 - **`USERNAME` / `PASSWORD`**: credenciais de login.
