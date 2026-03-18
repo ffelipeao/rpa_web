@@ -15,10 +15,20 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 ## Pré-requisitos
 
 - **Sistema**: Windows (o script foi testado no Windows; Playwright também funciona em Linux/macOS).
-- **Python**: 3.13+ (gerenciado pelo `uv`).
+- **Python**: 3.14+ (gerenciado pelo `uv`).
 - **Ferramentas**:
   - [uv](https://docs.astral.sh/uv/)
   - Google Chrome instalado (o Playwright usa o Chrome do sistema por padrão).
+
+### Instalar o `uv` (macOS)
+
+Se você ainda não tiver o `uv` instalado:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+uv --version
+```
 
 ## Configuração
 
@@ -39,13 +49,13 @@ ID_BOTAO_1=ID_BOTAO_1
 ID_BOTAO_2=ID_BOTAO_2
 ```
 
-- **`USERNAME` / `PASSWORD`**: credenciais de login.
-- **`SITE`**: URL da página de login (com ou sem `https://`).
-- **`ID_USERNAME`**: `id` do campo de usuário no HTML.
-- **`ID_PASSWORD`**: `id` do campo de senha.
-- **`ID_LOGIN`**: `id` do botão de login.
-- **`ID_BOTAO_1`**: `id` do botão da primeira ação.
-- **`ID_BOTAO_2`**: `id` do botão de confirmação final (Passo 9).
+- `**USERNAME` / `PASSWORD**`: credenciais de login.
+- `**SITE**`: URL da página de login (com ou sem `https://`).
+- `**ID_USERNAME**`: `id` do campo de usuário no HTML.
+- `**ID_PASSWORD**`: `id` do campo de senha.
+- `**ID_LOGIN**`: `id` do botão de login.
+- `**ID_BOTAO_1**`: `id` do botão da primeira ação.
+- `**ID_BOTAO_2**`: `id` do botão de confirmação final (Passo 9).
 
 Todas as variáveis `ID_*` são **obrigatórias**. Se alguma não estiver definida, o script encerra com mensagem de erro indicando quais faltam.
 
@@ -84,12 +94,12 @@ O `main.py` executa, em sequência:
 
 1. **Verifica se hoje é dia útil** (segunda a sexta). Se for sábado ou domingo, exibe uma mensagem e encerra sem executar a automação.
 2. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
-3. Carrega o `.env` e valida se todas as variáveis `ID_*` estão definidas.
+3. Carrega o `.env` e valida se todas as variáveis `ID_`* estão definidas.
 4. Abre o Chrome (via Playwright) na URL configurada e espera o formulário de login estar visível.
 5. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
 6. Aguarda a página pós-login carregar.
 7. Clica no botão da primeira ação pelo ID.
-8. Se não estiver em modo `--test`, clica no botão de confirmação final (Passo 9) pelo ID; se o botão estiver dentro de um modal com iframe, a automação tenta localizar o botão dentro do iframe e, em último caso, pelo texto **\"CONFIRMAR\"**.
+8. Se não estiver em modo `--test`, clica no botão de confirmação final (Passo 9) pelo ID; se o botão estiver dentro de um modal com iframe, a automação tenta localizar o botão dentro do iframe e, em último caso, pelo texto **CONFIRMAR**.
 9. Fecha o navegador.
 10. **Remove arquivos de log** em `logs/` com mais de 10 dias (por data de modificação), para evitar acúmulo indefinido de arquivos.
 
@@ -101,8 +111,11 @@ Após clonar o repositório:
 
 ```bash
 uv sync                    # instala as dependências (playwright, python-dotenv, etc.)
-playwright install chrome  # instala o browser para o Playwright (ou use o Chrome já instalado)
-uv run main.py             # executa a automação completa (todos os passos)
+# Opcional: se você já tem o Chrome instalado e o Playwright não reclamar de browser ausente,
+# pode pular esse comando. (o script usa `channel="chrome"`, ou seja, tenta usar o Chrome do sistema)
+# uv run playwright install chrome
+uv run main.py --test      # recomendado: primeiro valide o fluxo sem o Passo 8
+uv run main.py             # depois execute a automação completa
 ```
 
 O script usa o Chrome instalado no sistema (`channel="chrome"`). Se preferir o Chromium gerenciado pelo Playwright, use `playwright install chromium` e ajuste o código para não usar `channel="chrome"`.
@@ -130,10 +143,12 @@ Use o argumento `--test` quando quiser:
 
 O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O restante da automação (login, botão Botão 1, fechamento do navegador) é executado normalmente.
 
-| Comando | Passo 9 (botão CONFIRMAR) |
-|--------|---------------------------|
-| `uv run main.py` | Executado |
-| `uv run main.py --test` | Não executado |
+
+| Comando                 | Passo 9 (botão CONFIRMAR) |
+| ----------------------- | ------------------------- |
+| `uv run main.py`        | Executado                 |
+| `uv run main.py --test` | Não executado             |
+
 
 ## Log de execuções
 
@@ -193,17 +208,20 @@ uv pip compile pyproject.toml -o requirements.txt
 Se aparecer o aviso de que o uv não conseguiu usar hardlinks e está fazendo cópia completa (comum quando o cache e o projeto estão em discos/partições diferentes), você pode suprimir o aviso e usar modo cópia:
 
 **Na sessão atual (PowerShell):**
+
 ```powershell
 $env:UV_LINK_MODE = "copy"
 uv run main.py
 ```
 
 **Sempre que rodar (uma vez por terminal):**
+
 ```powershell
 $env:UV_LINK_MODE = "copy"
 ```
 
 **Ou em cada comando:**
+
 ```powershell
 uv run --link-mode=copy main.py
 ```
