@@ -54,6 +54,9 @@ USERNAME=seu_usuario_ou_email
 PASSWORD=sua_senha
 SITE=https://seu-site-alvo.com/
 
+# Opcional: 1 (padrão) = sem janela. 0 = janela visível para depuração.
+# HEADLESS=1
+
 # IDs dos elementos do formulário (obrigatórios; inspecione a página com F12 para obter os valores)
 ID_USERNAME=ID_USERNAME
 ID_PASSWORD=ID_PASSWORD
@@ -62,7 +65,11 @@ ID_BOTAO_1=ID_BOTAO_1
 ID_BOTAO_2=ID_BOTAO_2
 ```
 
+> **HEADLESS — em destaque**  
+> Variável **opcional**. Se você **não** definir, o script assume **`1`**: navegador **sem janela** (terminal, `cron`, servidor). Defina **`HEADLESS=0`** no `.env` quando quiser **ver o navegador** ao depurar. O arquivo **`.env.example`** na raiz repete esse bloco comentado para copiar ao criar o seu `.env`.
+
 - **`USERNAME` / `PASSWORD`**: credenciais de login.
+- **`HEADLESS`**: opcional; `1` ou omitido = sem janela; `0` = janela visível (depuração). Mesma regra descrita no destaque acima e em `.env.example`.
 - **`SITE`**: URL da página de login (com ou sem `https://`).
 - **`ID_USERNAME`**: `id` do campo de usuário no HTML.
 - **`ID_PASSWORD`**: `id` do campo de senha.
