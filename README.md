@@ -6,7 +6,7 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 
 - **Objetivo**: abrir o site alvo, fazer login (usuário e senha) e executar sequências de cliques (ex.: botões pós-login).
 - **Automação**: baseada nos **IDs dos elementos** (campos e botões) definidos no arquivo `.env`. O Playwright localiza os elementos pelo `id` no HTML, evitando erros quando a tela ou a resolução mudam.
-- **Navegador**: Google Chrome via Playwright (Chrome instalado no sistema), em modo **sem janela (headless)** por padrão — adequado a terminal, `cron` e servidores. Use `HEADLESS=0` no `.env` se precisar ver o navegador.
+- **Navegador**: por padrão o **Chromium** instalado pelo Playwright (`uv run playwright install chromium`), em modo **sem janela (headless)** — adequado a terminal, `cron` e servidores. Use `HEADLESS=0` no `.env` para ver a janela. Se quiser usar o **Google Chrome** já instalado no sistema, defina `PLAYWRIGHT_CHANNEL=chrome` no `.env` (em servidor sem Chrome, não use essa variável).
 - **Dias de execução**: a automação só roda em **dias úteis (segunda a sexta)**. Sábados e domingos são ignorados automaticamente.
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
 - **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros. Ao final da tarefa, o script **remove automaticamente** arquivos de log com mais de 10 dias.
@@ -18,7 +18,7 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 - **Python**: 3.14+ (gerenciado pelo `uv`).
 - **Ferramentas**:
   - [uv](https://docs.astral.sh/uv/)
-  - Google Chrome instalado (o Playwright usa o Chrome do sistema por padrão).
+  - **Chromium do Playwright** (instalado com `uv run playwright install chromium` após o `uv sync`; ver seção Configuração). **Google Chrome** no sistema só é necessário se você definir `PLAYWRIGHT_CHANNEL=chrome` no `.env`.
 
 ### Instalar o `uv` (macOS)
 
@@ -31,6 +31,19 @@ uv --version
 ```
 
 ## Configuração
+
+### 0. Dependências Python e Chromium do Playwright
+
+Na raiz do projeto (após clonar), instale o ambiente e o binário do navegador usado pelo script. A ordem importa: primeiro o `uv sync`, depois o `playwright install`.
+
+```bash
+uv sync
+uv run playwright install chromium
+```
+
+- O pacote **playwright** no PyPI traz só a biblioteca Python; o **Chromium** vem do segundo comando. Faça isso **uma vez** por máquina ou sempre que recriar o `.venv` de propósito.
+- Em Linux minimalista, se faltar biblioteca do sistema: `uv run playwright install-deps chromium` (às vezes com `sudo`).
+- Atalho equivalente aos dois primeiros comandos: `./scripts/bootstrap.sh` (deixe executável com `chmod +x scripts/bootstrap.sh` se necessário).
 
 ### 1. Variáveis de ambiente (`.env`)
 
@@ -49,13 +62,13 @@ ID_BOTAO_1=ID_BOTAO_1
 ID_BOTAO_2=ID_BOTAO_2
 ```
 
-- `**USERNAME` / `PASSWORD**`: credenciais de login.
-- `**SITE**`: URL da página de login (com ou sem `https://`).
-- `**ID_USERNAME**`: `id` do campo de usuário no HTML.
-- `**ID_PASSWORD**`: `id` do campo de senha.
-- `**ID_LOGIN**`: `id` do botão de login.
-- `**ID_BOTAO_1**`: `id` do botão da primeira ação.
-- `**ID_BOTAO_2**`: `id` do botão de confirmação final (Passo 9).
+- **`USERNAME` / `PASSWORD`**: credenciais de login.
+- **`SITE`**: URL da página de login (com ou sem `https://`).
+- **`ID_USERNAME`**: `id` do campo de usuário no HTML.
+- **`ID_PASSWORD`**: `id` do campo de senha.
+- **`ID_LOGIN`**: `id` do botão de login.
+- **`ID_BOTAO_1`**: `id` do botão da primeira ação.
+- **`ID_BOTAO_2`**: `id` do botão de confirmação final (Passo 9).
 
 Todas as variáveis `ID_*` são **obrigatórias**. Se alguma não estiver definida, o script encerra com mensagem de erro indicando quais faltam.
 
@@ -95,7 +108,7 @@ O `main.py` executa, em sequência:
 1. **Verifica se hoje é dia útil** (segunda a sexta). Se for sábado ou domingo, exibe uma mensagem e encerra sem executar a automação.
 2. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
 3. Carrega o `.env` e valida se todas as variáveis `ID_`* estão definidas.
-4. Abre o Chrome (via Playwright, headless por padrão) na URL configurada e espera o formulário de login estar visível.
+4. Abre o Chromium do Playwright ou o Chrome do sistema (se `PLAYWRIGHT_CHANNEL=chrome` no `.env`), em headless por padrão, na URL configurada e espera o formulário de login estar visível.
 5. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
 6. Aguarda a página pós-login carregar.
 7. Clica no botão da primeira ação pelo ID.
@@ -107,18 +120,17 @@ A interação é feita pelo **Playwright**, que localiza os elementos pelo `id` 
 
 ## Como rodar o projeto
 
-Após clonar o repositório:
+Ordem recomendada (alinhada à seção **Configuração**):
 
 ```bash
-uv sync                    # instala as dependências (playwright, python-dotenv, etc.)
-# Opcional: se você já tem o Chrome instalado e o Playwright não reclamar de browser ausente,
-# pode pular esse comando. (o script usa `channel="chrome"`, ou seja, tenta usar o Chrome do sistema)
-# uv run playwright install chrome
-uv run main.py --test      # recomendado: primeiro valide o fluxo sem o Passo 8
-uv run main.py             # depois execute a automação completa
+uv sync
+uv run playwright install chromium
+# Crie e preencha o .env (variáveis SITE, USERNAME, PASSWORD, ID_*)
+uv run main.py --test      # recomendado: valida o fluxo sem o Passo 9 (CONFIRMAR)
+uv run main.py             # automação completa
 ```
 
-O script usa o Chrome instalado no sistema (`channel="chrome"`). Se preferir o Chromium gerenciado pelo Playwright, use `playwright install chromium` e ajuste o código para não usar `channel="chrome"`.
+Sem o `playwright install chromium`, o primeiro `uv run main.py` tende a falhar por falta do binário do navegador. Chrome do sistema só entra no fluxo se você definir `PLAYWRIGHT_CHANNEL=chrome` no `.env`.
 
 ## Agendamento de Tarefas
 
@@ -126,7 +138,7 @@ Como o `main.py` já verifica **dias úteis (segunda a sexta)** e consulta `data
 
 ### macOS e Linux (crontab)
 
-- Garanta que você consegue rodar manualmente: `uv sync` e `uv run main.py`.
+- Garanta que você consegue rodar manualmente: `uv sync`, `uv run playwright install chromium` e `uv run main.py`.
 - Edite a crontab: `crontab -e`.
 - Adicione uma linha (exemplo: todo dia 09:00):
 
@@ -136,7 +148,7 @@ Como o `main.py` já verifica **dias úteis (segunda a sexta)** e consulta `data
 
 Observações:
 - No `cron`, o PATH é mais “limpo”; por isso use caminho absoluto para o `uv` e para o diretório do projeto.
-- O script usa Chrome em modo sem janela por padrão; não é necessário estar com sessão gráfica aberta no servidor.
+- Com headless ativo (padrão), não é necessário sessão gráfica no servidor; o navegador é o Chromium do Playwright, salvo se você usar `PLAYWRIGHT_CHANNEL=chrome`.
 
 Se preferir rodar só em dias úteis (segunda a sexta), use:
 
@@ -146,7 +158,7 @@ Se preferir rodar só em dias úteis (segunda a sexta), use:
 
 ### Windows (Agendador de Tarefas)
 
-- Verifique antes manualmente: `uv sync` e `uv run main.py`.
+- Verifique antes manualmente: `uv sync`, `uv run playwright install chromium` e `uv run main.py`.
 - Abra o **Agendador de Tarefas**.
 - Crie uma tarefa (exemplo: nome `rpa_web` e gatilho diário às 09:00, ou a frequência que você preferir).
 - Em **Ação**, selecione “Iniciar um programa”.
