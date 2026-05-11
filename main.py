@@ -154,17 +154,28 @@ def main(*, test: bool = False) -> int:
         logger.info("Configurações carregadas. SITE=%s (login por IDs do formulário).", SITE)
 
         headless = _headless_from_env()
-        logger.info("Navegador: headless=%s (defina HEADLESS=0 no .env para janela visível).", headless)
+        # channel="chrome" exige Google Chrome instalado no SO. No servidor use Chromium do Playwright
+        # (não defina PLAYWRIGHT_CHANNEL ou use outro valor) e rode: playwright install chromium
+        channel = os.getenv("PLAYWRIGHT_CHANNEL", "").strip().lower()
+        usar_chrome_instalado = channel == "chrome"
+        logger.info(
+            "Navegador: headless=%s, motor=%s (PLAYWRIGHT_CHANNEL=chrome só na máquina com Chrome instalado).",
+            headless,
+            "Chrome do sistema" if usar_chrome_instalado else "Chromium (Playwright)",
+        )
+
+        launch_kwargs: dict = {
+            "headless": headless,
+            "ignore_default_args": ["--enable-automation"],
+            "args": [
+                "--disable-blink-features=AutomationControlled",
+            ],
+        }
+        if usar_chrome_instalado:
+            launch_kwargs["channel"] = "chrome"
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(
-                channel="chrome",
-                headless=headless,
-                ignore_default_args=["--enable-automation"],
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                ],
-            )
+            browser = p.chromium.launch(**launch_kwargs)
             context = browser.new_context(
                 locale="pt-BR",
                 timezone_id="America/Sao_Paulo",
