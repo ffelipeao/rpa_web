@@ -6,7 +6,7 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 
 - **Objetivo**: abrir o site alvo, fazer login (usuário e senha) e executar sequências de cliques (ex.: botões pós-login).
 - **Automação**: baseada nos **IDs dos elementos** (campos e botões) definidos no arquivo `.env`. O Playwright localiza os elementos pelo `id` no HTML, evitando erros quando a tela ou a resolução mudam.
-- **Navegador**: Google Chrome (controlado pelo Playwright; usa o Chrome instalado no sistema).
+- **Navegador**: Google Chrome via Playwright (Chrome instalado no sistema), em modo **sem janela (headless)** por padrão — adequado a terminal, `cron` e servidores. Use `HEADLESS=0` no `.env` se precisar ver o navegador.
 - **Dias de execução**: a automação só roda em **dias úteis (segunda a sexta)**. Sábados e domingos são ignorados automaticamente.
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
 - **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros. Ao final da tarefa, o script **remove automaticamente** arquivos de log com mais de 10 dias.
@@ -95,7 +95,7 @@ O `main.py` executa, em sequência:
 1. **Verifica se hoje é dia útil** (segunda a sexta). Se for sábado ou domingo, exibe uma mensagem e encerra sem executar a automação.
 2. **Verifica a data de hoje** em `data_invalidas.txt`. Se estiver na lista, exibe uma mensagem e encerra sem executar a automação.
 3. Carrega o `.env` e valida se todas as variáveis `ID_`* estão definidas.
-4. Abre o Chrome (via Playwright) na URL configurada e espera o formulário de login estar visível.
+4. Abre o Chrome (via Playwright, headless por padrão) na URL configurada e espera o formulário de login estar visível.
 5. Preenche o campo de usuário e o campo de senha pelos IDs e clica no botão de login.
 6. Aguarda a página pós-login carregar.
 7. Clica no botão da primeira ação pelo ID.
@@ -136,7 +136,7 @@ Como o `main.py` já verifica **dias úteis (segunda a sexta)** e consulta `data
 
 Observações:
 - No `cron`, o PATH é mais “limpo”; por isso use caminho absoluto para o `uv` e para o diretório do projeto.
-- Como o script abre o Chrome com interface (`headless=False`), é mais seguro agendar quando você estiver logado na sua sessão.
+- O script usa Chrome em modo sem janela por padrão; não é necessário estar com sessão gráfica aberta no servidor.
 
 Se preferir rodar só em dias úteis (segunda a sexta), use:
 
@@ -161,7 +161,7 @@ Se preferir rodar só em dias úteis (segunda a sexta), use:
 
 Observações:
 - Se o `uv` não for encontrado pelo Agendador, descubra o caminho com `where uv` e use o caminho completo do `uv.exe`.
-- Como o script abre o Chrome com interface (`headless=False`), configure para executar quando o usuário estiver conectado para evitar falhas de sessão sem UI.
+- Com headless ativo (padrão), a tarefa pode rodar mesmo sem usuário conectado à área de trabalho (ajuste permissões de rede e PATH conforme seu ambiente).
 
 **Modo teste** (não executa o Passo 9 — clique no botão CONFIRMAR):
 
@@ -196,8 +196,8 @@ O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O
 ## Log de execuções
 
 - **Pasta**: `logs/` (criada automaticamente na raiz do projeto).
-- **Nome do arquivo**: `rpa_web_AAAAMMDD_HHMMSS.log` (data e hora do início da execução).
-- **Conteúdo**: cada ação da automação (abertura do Chrome, preenchimento de campos, cliques, etc.) e, em caso de erro, o stack trace completo.
+- **Nome do arquivo**: `run_AAAAMMDD_HHMMSS.log` (data e hora do início da execução).
+- **Conteúdo**: cada etapa relevante (abertura do site, preenchimento de campos, cliques, etc.) e, em caso de erro, o stack trace completo.
 - **Retenção**: ao final de cada execução (sucesso ou falha), o script remove arquivos de log com **mais de 10 dias**, com base na data de modificação do arquivo. O período de retenção está definido em `main.py` na constante `DIAS_RETENCAO_LOG`.
 - **Agendador de Tarefas**: o script encerra com código `0` em sucesso e `1` em falha; o histórico detalhado fica nos arquivos de log.
 

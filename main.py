@@ -12,7 +12,7 @@ load_dotenv(override=True)
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / f"rpa_web_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+LOG_FILE = LOG_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,7 +37,7 @@ TIMEOUT_NAVEGACAO = 15_000
 TIMEOUT_ELEMENTO = 15_000
 TIMEOUT_MODAL = 15_000
 
-# Pausa antes de cada ação na página (ms), para parecer mais humano e reduzir detecção de bot
+# Pausa antes de cada ação na página (ms)
 PAUSA_ANTES_ACAO_MS = 3_000
 
 # Quantidade de dias para manter arquivos de log; arquivos mais antigos são removidos ao final da tarefa
@@ -102,22 +102,28 @@ def _is_invalid_today() -> bool:
     return False
 
 
+def _headless_from_env() -> bool:
+    """True = sem janela (padrão). Defina HEADLESS=0 no .env para abrir o Chrome visível (depuração)."""
+    v = os.getenv("HEADLESS", "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
 def main(*, test: bool = False) -> int:
     try:
         if test:
-            logger.info("Modo teste ativo: Passo 9 (botão CONFIRMAR) não será executado.")
+            logger.info("Modo teste: Passo 9 (CONFIRMAR) não será executado.")
             
         # Não executa em fins de semana (sábado/domingo)
         if date.today().weekday() >= 5:
-            logger.info("Hoje não é dia útil (sábado/domingo). Automatização não será executada.")
+            logger.info("Hoje não é dia útil (sábado/domingo). Execução não será iniciada.")
             return 0
         if _is_invalid_today():
             logger.info(
-                "Data atual está na lista de datas inválidas (data_invalidas.txt). Automatização não será executada."
+                "Data atual está na lista de datas inválidas (data_invalidas.txt). Execução não será iniciada."
             )
             return 0
 
-        logger.info("Iniciando o programa...")
+        logger.info("Iniciando...")
         load_dotenv(override=True)
 
         # Valida variáveis de ambiente obrigatórias (IDs do formulário)
@@ -147,13 +153,26 @@ def main(*, test: bool = False) -> int:
 
         logger.info("Configurações carregadas. SITE=%s (login por IDs do formulário).", SITE)
 
+        headless = _headless_from_env()
+        logger.info("Navegador: headless=%s (defina HEADLESS=0 no .env para janela visível).", headless)
+
         with sync_playwright() as p:
-            # Usa o Chrome instalado; modo anônimo via context
             browser = p.chromium.launch(
                 channel="chrome",
-                headless=False,
+                headless=headless,
+                ignore_default_args=["--enable-automation"],
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                ],
             )
-            context = browser.new_context()
+            context = browser.new_context(
+                locale="pt-BR",
+                timezone_id="America/Sao_Paulo",
+                viewport={"width": 1920, "height": 1080},
+            )
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+            )
             page = context.new_page()
             page.set_default_timeout(TIMEOUT_ELEMENTO)
             page.set_default_navigation_timeout(TIMEOUT_NAVEGACAO)
@@ -212,7 +231,7 @@ def main(*, test: bool = False) -> int:
                 else:
                     logger.info("Modo teste: Passo 9 (CONFIRMAR) ignorado.")
 
-                logger.info("Automatização concluída com sucesso.")
+                logger.info("Tarefa concluída com sucesso.")
             finally:
                 page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 browser.close()
@@ -222,18 +241,18 @@ def main(*, test: bool = False) -> int:
         logger.exception("Timeout ao aguardar elemento ou navegação: %s", e)
         return 1
     except Exception:
-        logger.exception("Erro inesperado durante a execução da automatização.")
+        logger.exception("Erro inesperado durante a execução.")
         return 1
     finally:
         _remover_logs_antigos()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automatização web (Playwright).")
+    parser = argparse.ArgumentParser(description="Execução web (Playwright).")
     parser.add_argument(
         "--test",
         action="store_true",
-        help="Modo teste: executa a automação sem o Passo 9 (clique em CONFIRMAR).",
+        help="Modo teste: executa o fluxo sem o Passo 9 (clique em CONFIRMAR).",
     )
     args = parser.parse_args()
     raise SystemExit(main(test=args.test))
