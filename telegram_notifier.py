@@ -142,3 +142,5 @@ class TelegramGroupAlert:
         with urllib.request.urlopen(req, timeout=30) as resp:
             if resp.status != 200:
                 self._log.warning("Telegram resposta HTTP %s", resp.status)
+            else:
+                self._log.info("Telegram: mensagem enviada com sucesso.")

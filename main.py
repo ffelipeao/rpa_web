@@ -163,7 +163,7 @@ def main(*, test: bool = False) -> int:
 
     try:
         if test:
-            logger.info("Modo teste: Passo 9 (CONFIRMAR) não será executado.")
+            logger.warning("Modo teste: Ativado.")
             
         # Não executa em fins de semana (sábado/domingo)
         if date.today().weekday() >= 5:
