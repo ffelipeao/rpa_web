@@ -3,9 +3,21 @@ import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import logging
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+
+from telegram_notifier import (
+    OUTCOME_CONFIG_ERROR,
+    OUTCOME_ERROR,
+    OUTCOME_SKIPPED_INVALID_DATE,
+    OUTCOME_SKIPPED_WEEKEND,
+    OUTCOME_SUCCESS_FULL,
+    OUTCOME_SUCCESS_TEST,
+    RunReport,
+    TelegramGroupAlert,
+)
 
 # Carrega .env antes de ler qualquer variável de ambiente usada no módulo
 load_dotenv(override=True)
@@ -139,6 +151,16 @@ def _headless_from_env() -> bool:
 
 def main(*, test: bool = False) -> int:
     _write_session_header(_daily_log_path())
+    run_tz = ZoneInfo("America/Sao_Paulo")
+    executed_at = datetime.now(run_tz)
+    report = RunReport(
+        executed_at=executed_at,
+        test_mode=test,
+        outcome=OUTCOME_ERROR,
+        exit_code=1,
+    )
+    notifier = TelegramGroupAlert(logger=logger)
+
     try:
         if test:
             logger.info("Modo teste: Passo 9 (CONFIRMAR) não será executado.")
@@ -146,10 +168,22 @@ def main(*, test: bool = False) -> int:
         # Não executa em fins de semana (sábado/domingo)
         if date.today().weekday() >= 5:
             logger.info("Hoje não é dia útil (sábado/domingo). Execução não será iniciada.")
+            report = RunReport(
+                executed_at=executed_at,
+                test_mode=test,
+                outcome=OUTCOME_SKIPPED_WEEKEND,
+                exit_code=0,
+            )
             return 0
         if _is_invalid_today():
             logger.info(
                 "Data atual está na lista de datas inválidas (data_invalidas.txt). Execução não será iniciada."
+            )
+            report = RunReport(
+                executed_at=executed_at,
+                test_mode=test,
+                outcome=OUTCOME_SKIPPED_INVALID_DATE,
+                exit_code=0,
             )
             return 0
 
@@ -170,6 +204,12 @@ def main(*, test: bool = False) -> int:
                 "Variáveis obrigatórias não configuradas no .env: %s. Defina todas antes de executar.",
                 ", ".join(faltando),
             )
+            report = RunReport(
+                executed_at=executed_at,
+                test_mode=test,
+                outcome=OUTCOME_CONFIG_ERROR,
+                exit_code=1,
+            )
             return 1
 
         USERNAME = os.getenv("USERNAME", "")
@@ -177,6 +217,12 @@ def main(*, test: bool = False) -> int:
         SITE = os.getenv("SITE", "").strip()
         if not SITE:
             logger.error("SITE não configurado no .env.")
+            report = RunReport(
+                executed_at=executed_at,
+                test_mode=test,
+                outcome=OUTCOME_CONFIG_ERROR,
+                exit_code=1,
+            )
             return 1
         if not SITE.startswith(("http://", "https://")):
             SITE = "https://" + SITE
@@ -273,6 +319,12 @@ def main(*, test: bool = False) -> int:
                     logger.info("Modo teste: Passo 9 (CONFIRMAR) ignorado.")
 
                 logger.info("Tarefa concluída com sucesso.")
+                report = RunReport(
+                    executed_at=executed_at,
+                    test_mode=test,
+                    outcome=OUTCOME_SUCCESS_TEST if test else OUTCOME_SUCCESS_FULL,
+                    exit_code=0,
+                )
             finally:
                 page.wait_for_timeout(PAUSA_ANTES_ACAO_MS)
                 browser.close()
@@ -280,12 +332,25 @@ def main(*, test: bool = False) -> int:
         return 0
     except PlaywrightTimeoutError as e:
         logger.exception("Timeout ao aguardar elemento ou navegação: %s", e)
+        report = RunReport(
+            executed_at=executed_at,
+            test_mode=test,
+            outcome=OUTCOME_ERROR,
+            exit_code=1,
+        )
         return 1
     except Exception:
         logger.exception("Erro inesperado durante a execução.")
+        report = RunReport(
+            executed_at=executed_at,
+            test_mode=test,
+            outcome=OUTCOME_ERROR,
+            exit_code=1,
+        )
         return 1
     finally:
         _remover_logs_antigos()
+        notifier.notify_run(report)
 
 
 if __name__ == "__main__":
