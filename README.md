@@ -9,7 +9,8 @@ Automação RPA (Robotic Process Automation) que faz login em um sistema web e e
 - **Navegador**: por padrão o **Chromium** instalado pelo Playwright (`uv run playwright install chromium`), em modo **sem janela (headless)** — adequado a terminal, `cron` e servidores. Use `HEADLESS=0` no `.env` para ver a janela. Se quiser usar o **Google Chrome** já instalado no sistema, defina `PLAYWRIGHT_CHANNEL=chrome` no `.env` (em servidor sem Chrome, não use essa variável).
 - **Dias de execução**: a automação só roda em **dias úteis (segunda a sexta)**. Sábados e domingos são ignorados automaticamente.
 - **Datas inválidas**: o script **não executa** em datas listadas em `data_invalidas.txt` (ex.: feriados nacionais e estaduais do RJ).
-- **Log**: cada execução grava um arquivo em `logs/` com data e hora no nome (ex.: `rpa_web_20260303_142530.log`), registrando as ações e possíveis erros. Ao final da tarefa, o script **remove automaticamente** arquivos de log com mais de 10 dias.
+- **Log**: um arquivo por dia em `logs/` (`run_YYYYMMDD.log`, modo **append**), com bloco separado por execução; registra ações e possíveis erros. Ao final da tarefa, o script **remove automaticamente** arquivos de log com mais de 10 dias.
+- **Telegram**: ao **final de toda execução** (incluindo quando o fluxo não inicia por fim de semana, data em `data_invalidas.txt` ou erro de configuração), pode enviar um **resumo em HTML** para um grupo ou chat, via [Bot API](https://core.telegram.org/bots/api), se `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` estiverem definidos no `.env`. O envio usa só a biblioteca padrão (`urllib`); falhas de rede **não** interrompem o script (apenas aviso no log). Desative com `TELEGRAM_ALERTS=0` se quiser manter o restante igual sem notificações.
 - **Modo teste**: o argumento `--test` permite rodar a automação **sem executar o Passo 9** (clique no botão CONFIRMAR), útil para validar o fluxo até o botão "CONFIRMAR".
 
 ## Pré-requisitos
@@ -63,6 +64,11 @@ ID_PASSWORD=ID_PASSWORD
 ID_LOGIN=ID_LOGIN
 ID_BOTAO_1=ID_BOTAO_1
 ID_BOTAO_2=ID_BOTAO_2
+
+# Opcional: alertas ao fim de cada execução (ver seção "Telegram" abaixo)
+# TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
+# TELEGRAM_CHAT_ID=-1001234567890
+# TELEGRAM_ALERTS=0   # desliga todos os envios mantendo o script igual
 ```
 
 > **HEADLESS — em destaque**  
@@ -79,7 +85,25 @@ ID_BOTAO_2=ID_BOTAO_2
 
 Todas as variáveis `ID_*` são **obrigatórias**. Se alguma não estiver definida, o script encerra com mensagem de erro indicando quais faltam.
 
-> **Importante**: o arquivo `.env` contém senha. Não envie esse arquivo para o Git / repositórios remotos.
+> **Importante**: o arquivo `.env` contém senha e pode conter o token do bot. Não envie esse arquivo para o Git / repositórios remotos.
+
+### 1b. Telegram (alertas opcionais)
+
+O módulo `telegram_notifier.py` envia **uma mensagem por execução** no bloco `finally` de `main.py`: ao sair de `main()`, o fluxo chama `_remover_logs_antigos()` e, em seguida, `TelegramGroupAlert.notify_run()` — inclusive quando a execução encerra cedo (fim de semana, data inválida ou erro de configuração).
+
+| Variável | Obrigatória | Descrição |
+| -------- | ----------- | --------- |
+| `TELEGRAM_BOT_TOKEN` | Não | Token do bot criado com [@BotFather](https://t.me/BotFather). |
+| `TELEGRAM_CHAT_ID` | Não | ID do grupo, canal ou chat (ex.: `-1001234567890` para supergrupos/canais). |
+| `TELEGRAM_ALERTS` | Não | Padrão `1`. Valores como `0`, `false`, `no`, `off` desativam o envio (útil em máquinas de desenvolvimento). |
+
+É necessário preencher **os dois** (`token` e `chat_id`) para haver envio; se qualquer um estiver vazio, o envio é ignorado. Com `TELEGRAM_ALERTS=0`, o envio também não ocorre (mensagem em nível `DEBUG` no log se token ou chat estiver parcialmente configurado).
+
+**Conteúdo típico da mensagem**: título "RPA Web — fim de execução", data/hora (fuso `America/Sao_Paulo`), se rodou em modo teste (`--test`), código de saída, texto da situação (ex.: não iniciada por fim de semana, data inválida, erro de configuração, sucesso com ou sem Passo 9, ou erro na automação), se o fluxo Playwright terminou com sucesso, se o Passo 9 (CONFIRMAR) foi executado e se houve "operação de ponta a ponta" (confirmação real, não modo teste).
+
+**Como obter o `chat_id`**: adicione o bot ao grupo, envie uma mensagem e consulte `getUpdates` na API, ou use um bot auxiliar (ex.: @userinfobot) conforme a documentação do Telegram — o `.env.example` traz comentários resumidos.
+
+Erros HTTP ou de rede ao Telegram são registrados com `WARNING` no log; o processo já encerrou com o código de saída normal do RPA.
 
 ### 2. Datas em que o script não executa (`data_invalidas.txt`)
 
@@ -122,6 +146,7 @@ O `main.py` executa, em sequência:
 8. Se não estiver em modo `--test`, clica no botão de confirmação final (Passo 9) pelo ID; se o botão estiver dentro de um modal com iframe, a automação tenta localizar o botão dentro do iframe e, em último caso, pelo texto **CONFIRMAR**.
 9. Fecha o navegador.
 10. **Remove arquivos de log** em `logs/` com mais de 10 dias (por data de modificação), para evitar acúmulo indefinido de arquivos.
+11. **Notificação Telegram** (se habilitada): após a remoção de logs antigos, no `finally`, chama `TelegramGroupAlert.notify_run()` com o `RunReport` da execução — inclusive quando os passos iniciais encerram cedo (fim de semana ou data inválida) ou há erro de configuração.
 
 A interação é feita pelo **Playwright**, que localiza os elementos pelo `id` no HTML, sem usar coordenadas da tela.
 
@@ -215,7 +240,7 @@ O script registra no log que está em modo teste e que o Passo 9 foi ignorado. O
 ## Log de execuções
 
 - **Pasta**: `logs/` (criada automaticamente na raiz do projeto).
-- **Nome do arquivo**: `run_AAAAMMDD_HHMMSS.log` (data e hora do início da execução).
+- **Nome do arquivo**: `run_YYYYMMDD.log` (**um arquivo por dia**, novas execuções do mesmo dia são **anexadas**; cada execução começa com um cabeçalho de sessão e as linhas seguintes ficam indentadas no arquivo).
 - **Conteúdo**: cada etapa relevante (abertura do site, preenchimento de campos, cliques, etc.) e, em caso de erro, o stack trace completo.
 - **Retenção**: ao final de cada execução (sucesso ou falha), o script remove arquivos de log com **mais de 10 dias**, com base na data de modificação do arquivo. O período de retenção está definido em `main.py` na constante `DIAS_RETENCAO_LOG`.
 - **Agendador de Tarefas**: o script encerra com código `0` em sucesso e `1` em falha; o histórico detalhado fica nos arquivos de log.
