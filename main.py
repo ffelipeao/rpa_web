@@ -11,19 +11,48 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 load_dotenv(override=True)
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
 
+class _TabIndentFormatter(logging.Formatter):
+    """Prefixa cada linha do arquivo de log com tab (bloco da execução sob o cabeçalho da sessão)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = super().format(record)
+        return "\t" + text.replace("\n", "\n\t")
+
+
+def _daily_log_path() -> Path:
+    LOG_DIR.mkdir(exist_ok=True)
+    return LOG_DIR / f"run_{date.today().strftime('%Y%m%d')}.log"
+
+
+def _configure_logging() -> Path:
+    """Um arquivo de log por dia (`run_YYYYMMDD.log`), modo append."""
+    path = _daily_log_path()
+    root = logging.getLogger()
+    if root.handlers:
+        return path
+    root.setLevel(logging.INFO)
+    plain = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    fh = logging.FileHandler(path, encoding="utf-8", mode="a")
+    fh.setFormatter(_TabIndentFormatter("%(asctime)s [%(levelname)s] %(message)s"))
+    sh = logging.StreamHandler()
+    sh.setFormatter(plain)
+    root.addHandler(fh)
+    root.addHandler(sh)
+    return path
+
+
+LOG_FILE = _configure_logging()
 logger = logging.getLogger(__name__)
+
+
+def _write_session_header(log_path: Path) -> None:
+    """Marca no arquivo o início de uma execução (sem tab); linhas seguintes ficam indentadas no arquivo."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    bar = "=" * 72
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(f"\n{bar}\nExecução: {ts}\n{bar}\n")
 
 # IDs dos elementos do formulário: vêm do .env (obrigatórios)
 ID_USERNAME = os.getenv("ID_USERNAME")
@@ -109,6 +138,7 @@ def _headless_from_env() -> bool:
 
 
 def main(*, test: bool = False) -> int:
+    _write_session_header(_daily_log_path())
     try:
         if test:
             logger.info("Modo teste: Passo 9 (CONFIRMAR) não será executado.")
