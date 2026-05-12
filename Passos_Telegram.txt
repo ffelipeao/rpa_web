@@ -1,0 +1,24 @@
+Passo a passo para criar um bot no Telegram e descobrir o chat_id do grupo:
+
+Criar um bot no Telegram
+  Abra o Telegram e fale com @BotFather
+  Use /newbot
+  Escolha nome e usuário do bot
+  Guarde o TOKEN gerado
+Adicionar o bot no grupo
+  Coloque o bot dentro do grupo
+  Dê permissão para ele enviar mensagens
+Descobrir o chat_id do grupo
+  Envie uma mensagem qualquer no grupo
+
+Acesse no navegador:
+https://api.telegram.org/botSEU_TOKEN/getUpdates
+
+Procure por algo como:
+
+"chat": {
+  "id": -1001234567890,
+  "title": "Nome do Grupo"
+}
+
+Esse id é o chat_id do grupo. Para grupos, normalmente começa com -100.
