@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 OUTCOME_SKIPPED_WEEKEND: Final = "skipped_weekend"
 OUTCOME_SKIPPED_INVALID_DATE: Final = "skipped_invalid_date"
 OUTCOME_CONFIG_ERROR: Final = "config_error"
+OUTCOME_LOGIN_ERROR: Final = "login_error"
 OUTCOME_SUCCESS_TEST: Final = "success_test"
 OUTCOME_SUCCESS_FULL: Final = "success_full"
 OUTCOME_ERROR: Final = "error"
@@ -97,6 +98,8 @@ class TelegramGroupAlert:
             situacao = "Não iniciada — data na lista de datas inválidas."
         elif r.outcome == OUTCOME_CONFIG_ERROR:
             situacao = "Encerrada com erro de configuração (.env / SITE / IDs)."
+        elif r.outcome == OUTCOME_LOGIN_ERROR:
+            situacao = "Login não realizado — possível usuário ou senha incorretos."
         elif r.outcome == OUTCOME_SUCCESS_TEST:
             situacao = "Fluxo concluído em modo teste (Passo 9 / CONFIRMAR não executado)."
         elif r.outcome == OUTCOME_SUCCESS_FULL:

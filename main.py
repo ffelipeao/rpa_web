@@ -11,6 +11,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from telegram_notifier import (
     OUTCOME_CONFIG_ERROR,
     OUTCOME_ERROR,
+    OUTCOME_LOGIN_ERROR,
     OUTCOME_SKIPPED_INVALID_DATE,
     OUTCOME_SKIPPED_WEEKEND,
     OUTCOME_SUCCESS_FULL,
@@ -57,6 +58,10 @@ def _configure_logging() -> Path:
 
 LOG_FILE = _configure_logging()
 logger = logging.getLogger(__name__)
+
+
+class LoginError(Exception):
+    """Indica que o portal permaneceu na autenticação após o envio do login."""
 
 
 def _write_session_header(log_path: Path) -> None:
@@ -287,7 +292,23 @@ def main(*, test: bool = False) -> int:
                 logger.info("Clicando no botão de login (id=%s).", ID_LOGIN)
                 page.locator(f"#{ID_LOGIN}").click()
                 page.wait_for_load_state("load", timeout=TIMEOUT_NAVEGACAO)
-                page.locator(f"#{ID_BOTAO_1}").wait_for(state="visible", timeout=TIMEOUT_ELEMENTO)
+                try:
+                    page.locator(f"#{ID_BOTAO_1}").wait_for(
+                        state="visible", timeout=TIMEOUT_ELEMENTO
+                    )
+                except PlaywrightTimeoutError as exc:
+                    # Se o formulário reapareceu ou permaneceu visível, o envio foi
+                    # processado, mas a autenticação provavelmente foi recusada.
+                    formulario_login_visivel = (
+                        page.locator(f"#{ID_USERNAME}").is_visible()
+                        or page.locator(f"#{ID_PASSWORD}").is_visible()
+                        or page.locator(f"#{ID_LOGIN}").is_visible()
+                    )
+                    if formulario_login_visivel:
+                        raise LoginError(
+                            "Login não realizado; possível usuário ou senha incorretos."
+                        ) from exc
+                    raise
                 logger.info("Login enviado. Página pós-login carregada.")
 
                 # Passo 7 e 8: Botão de ação 1
@@ -330,6 +351,15 @@ def main(*, test: bool = False) -> int:
                 browser.close()
 
         return 0
+    except LoginError as e:
+        logger.error("%s", e)
+        report = RunReport(
+            executed_at=executed_at,
+            test_mode=test,
+            outcome=OUTCOME_LOGIN_ERROR,
+            exit_code=1,
+        )
+        return 1
     except PlaywrightTimeoutError as e:
         logger.exception("Timeout ao aguardar elemento ou navegação: %s", e)
         report = RunReport(
