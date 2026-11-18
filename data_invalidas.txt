@@ -28,3 +28,6 @@
 03/04/2026 - Sexta-feira Santa / Paixão de Cristo (feriado nacional)
 04/06/2026 - Corpus Christi (feriado estadual RJ)
 05/06/2026 - Ponto Facultativo - Corpus Christi
+
+#28/10/2026 - Dia do Servidor
+30/10/2026 - Dia do Servidor (Modificado)
